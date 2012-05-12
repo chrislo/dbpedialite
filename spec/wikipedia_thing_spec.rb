@@ -1,11 +1,10 @@
-require File.dirname(__FILE__) + "/spec_helper.rb"
+require 'spec_helper'
 require 'wikipedia_thing'
 
 describe WikipediaThing do
 
   context "creating an article from a page id" do
     before :each do
-      WikipediaApi.expects(:query).never
       @thing = WikipediaThing.new(52780)
     end
 
@@ -14,7 +13,7 @@ describe WikipediaThing do
     end
 
     it "should have the correct URI" do
-      @thing.uri.to_s.should == 'http://dbpedialite.org/things/52780#thing'
+      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/52780#id')
     end
 
     it "should not have co-ordinates" do
@@ -22,37 +21,12 @@ describe WikipediaThing do
     end
   end
 
-  context "creating an thing from a page title" do
-    before :each do
-      WikipediaApi.expects(:query).once.returns({'52780'=>{'pageid'=>52780}})
-      @thing = WikipediaThing.for_title('U2')
-    end
-
-    it "should return an object of type WikipediaThing" do
-      @thing.class.should == WikipediaThing
-    end
-
-    it "should have the correct URI" do
-      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/52780#thing')
-    end
-  end
-
-  context "creating an thing from a non-existant page title" do
-    before :each do
-      WikipediaApi.expects(:query).once.returns({'zsefpfs'=>{"title"=>"zsefpfs", "ns"=>0, "missing"=>""}})
-      @thing = WikipediaThing.for_title('zsefpfs')
-    end
-
-    it "should return an object of type WikipediaThing" do
-      @thing.should == nil
-    end
-  end
-
   context "creating an thing with data provided" do
     before :each do
-      WikipediaApi.expects(:query).never
-      @thing = WikipediaThing.new(934787,
+      @thing = WikipediaThing.new(
+        :pageid => '934787',
         :title => 'Ceres, Fife',
+        :displaytitle => 'Ceres, Fife',
         :latitude => 56.293431,
         :longitude => -2.970134,
         :updated_at => DateTime.parse('2010-05-08T17:20:04Z'),
@@ -64,8 +38,12 @@ describe WikipediaThing do
       @thing.class.should == WikipediaThing
     end
 
+    it "should have a pageid method to get the page id from the uri" do
+      @thing.pageid.should == '934787'
+    end
+
     it "should have the correct URI for the thing" do
-      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/934787#thing')
+      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/934787#id')
     end
 
     it "should have the correct URI for the document" do
@@ -76,12 +54,12 @@ describe WikipediaThing do
       @thing.title.should == 'Ceres, Fife'
     end
 
-    it "should have the correct abstract" do
-      @thing.abstract.should == 'Ceres is a village in Fife, Scotland.'
+    it "should have the correct display title" do
+      @thing.displaytitle.should == 'Ceres, Fife'
     end
 
-    it "should have a pageid method to get the page id from the uri" do
-      @thing.pageid.should == 934787
+    it "should have the correct abstract" do
+      @thing.abstract.should == 'Ceres is a village in Fife, Scotland.'
     end
 
     it "should have the correct latitude" do
@@ -93,17 +71,16 @@ describe WikipediaThing do
     end
 
     it "should encode the Wikipedia page URL correctly" do
-      @thing.wikipedia_uri.should == RDF::URI('http://en.wikipedia.org/wiki/Ceres%2C_Fife')
+      @thing.wikipedia_uri.should == RDF::URI('http://en.wikipedia.org/wiki/Ceres,_Fife')
     end
 
     it "should encode the dbpedia URI correctly" do
-      @thing.dbpedia_uri.should == RDF::URI('http://dbpedia.org/resource/Ceres%2C_Fife')
+      @thing.dbpedia_uri.should == RDF::URI('http://dbpedia.org/resource/Ceres,_Fife')
     end
   end
 
   context "changing the URI of the document" do
     before :each do
-      WikipediaApi.expects(:query).never
       @thing = WikipediaThing.new(1234)
     end
 
@@ -121,14 +98,13 @@ describe WikipediaThing do
     before :each do
       wikipedia_data = {
         'title' => 'Ceres, Fife',
+        'displaytitle' => 'Ceres, Fife',
         'longitude' => -2.970134,
         'latitude' => 56.293431,
-        'valid' => true,
         'abstract' => 'Ceres is a village in Fife, Scotland',
         'images' => ['http://upload.wikimedia.org/wikipedia/commons/0/04/Ceres%2C_Fife.jpg'],
         'externallinks' => ['http://www.fife.50megs.com/ceres-history.htm']
       }
-      WikipediaApi.expects(:query).never
       WikipediaApi.expects(:parse).once.returns(wikipedia_data)
       @thing = WikipediaThing.load(934787)
     end
@@ -142,7 +118,7 @@ describe WikipediaThing do
     end
 
     it "should have the correct uri" do
-      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/934787#thing')
+      @thing.uri.should == RDF::URI('http://dbpedialite.org/things/934787#id')
     end
 
     it "should have the correct title" do
@@ -162,15 +138,15 @@ describe WikipediaThing do
     end
 
     it "should escape titles correctly" do
-      @thing.escaped_title.should == 'Ceres%2C_Fife'
+      @thing.escaped_title.should == 'Ceres,_Fife'
     end
 
     it "should encode the Wikipedia page URL correctly" do
-      @thing.wikipedia_uri.should == RDF::URI('http://en.wikipedia.org/wiki/Ceres%2C_Fife')
+      @thing.wikipedia_uri.should == RDF::URI('http://en.wikipedia.org/wiki/Ceres,_Fife')
     end
 
     it "should encode the dbpedia URI correctly" do
-      @thing.dbpedia_uri.should == RDF::URI('http://dbpedia.org/resource/Ceres%2C_Fife')
+      @thing.dbpedia_uri.should == RDF::URI('http://dbpedia.org/resource/Ceres,_Fife')
     end
 
     it "should extract the abstract correctly" do
@@ -178,16 +154,30 @@ describe WikipediaThing do
     end
 
     context "when freebase responds with a parsable response" do
-      it "should have a freebase URI" do
+      before :each do
         freebase_data = {
           'guid' => '#9202a8c04000641f80000000003bb45c',
           'id' => '/en/ceres_united_kingdom',
           'mid' => '/m/03rf2x',
           'name' => 'Ceres',
-          'rdf_uri' => 'http://rdf.freebase.com/ns/m.03rf2x',
         }
         FreebaseApi.expects(:lookup_wikipedia_pageid).once.returns(freebase_data)
-        @thing.freebase_uri.should == RDF::URI('http://rdf.freebase.com/ns/m.03rf2x')
+      end
+
+      it "should have a machine id property" do
+        @thing.freebase_mid.should == '/m/03rf2x'
+      end
+
+      it "should have a GUID property" do
+        @thing.freebase_guid.should == '#9202a8c04000641f80000000003bb45c'
+      end
+
+      it "should have a freebase URI based on the machine id" do
+        @thing.freebase_mid_uri.should == RDF::URI('http://rdf.freebase.com/ns/m.03rf2x')
+      end
+
+      it "should have a freebase URI based on the guid" do
+        @thing.freebase_guid_uri.should == RDF::URI('http://rdf.freebase.com/ns/guid.9202a8c04000641f80000000003bb45c')
       end
     end
 
@@ -196,20 +186,20 @@ describe WikipediaThing do
         FreebaseApi.expects(:lookup_wikipedia_pageid).raises(Timeout::Error)
         previous_stderr, $stderr = $stderr, StringIO.new
 
-        @thing.freebase_uri
+        @thing.freebase_mid_uri
         $stderr.string.should == "Timed out while reading from Freebase: Timeout::Error\n"
 
         $stderr = previous_stderr
       end
     end
 
-    context "when FreebaseApi raises any error other than timeout" do
+    context "when FreebaseApi raises an a NotFound exception" do
       it "should send a message to stderr" do
-        FreebaseApi.expects(:lookup_wikipedia_pageid).raises()
+        FreebaseApi.expects(:lookup_wikipedia_pageid).raises(FreebaseApi::NotFound)
         previous_stderr, $stderr = $stderr, StringIO.new
 
-        @thing.freebase_uri
-        $stderr.string.should == "Error while reading from Freebase: RuntimeError\n"
+        @thing.freebase_mid_uri
+        $stderr.string.should == "Error while reading from Freebase: FreebaseApi::NotFound\n"
 
         $stderr = previous_stderr
       end
@@ -226,25 +216,33 @@ describe WikipediaThing do
 
   context "loading a non-existant page from wikipedia" do
     before :each do
-      data = {'valid' => false}
-      WikipediaApi.expects(:query).never
-      WikipediaApi.expects(:parse).once.returns(data)
+      WikipediaApi.expects(:parse).once.raises(
+        WikipediaApi::PageNotFound,
+        'There is no page with ID 999999'
+      )
       FreebaseApi.expects(:lookup_wikipedia_pageid).never
-      @thing = WikipediaThing.load(999999)
     end
 
-    it "should return nil" do
-      @thing.should == nil
+    it "should return raise a PageNotFound exception" do
+      lambda {WikipediaThing.load(999999)}.should raise_error(
+        WikipediaApi::PageNotFound,
+        'There is no page with ID 999999'
+      )
     end
   end
 
   context "converting a thing to RDF" do
     before :each do
-      WikipediaApi.expects(:query).never
+      FreebaseApi.expects(:lookup_wikipedia_pageid).once.returns({
+        'guid' => '#9202a8c04000641f8000000000066c8e',
+        'id' => '/en/u2',
+        'mid' => '/m/0dw4g',
+        'name' => 'U2',
+      })
       WikipediaApi.expects(:parse).never
-      FreebaseApi.expects(:lookup_wikipedia_pageid).once.returns(nil)
       @thing = WikipediaThing.new(52780,
         :title => 'U2',
+        :displaytitle => 'U2',
         :abstract => "U2 are an Irish rock band.",
         :updated_at => DateTime.parse('2010-05-08T17:20:04Z')
       )
@@ -255,13 +253,13 @@ describe WikipediaThing do
       @graph.class.should == RDF::Graph
     end
 
-    it "should return a graph with 8 triples" do
-      @graph.count.should == 8
+    it "should return a graph with 11 triples" do
+      @graph.count.should == 11
     end
 
     it "should include an rdf:type triple for the thing" do
       @graph.should have_triple([
-        RDF::URI("http://dbpedialite.org/things/52780#thing"),
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
         RDF.type,
         RDF::URI("http://www.w3.org/2002/07/owl#Thing")
       ])
@@ -269,7 +267,7 @@ describe WikipediaThing do
 
     it "should include a rdfs:label triple for the thing" do
       @graph.should have_triple([
-        RDF::URI("http://dbpedialite.org/things/52780#thing"),
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
         RDF::RDFS.label,
         RDF::Literal("U2"),
       ])
@@ -277,9 +275,41 @@ describe WikipediaThing do
 
     it "should include a rdfs:comment triple for the thing" do
       @graph.should have_triple([
-        RDF::URI("http://dbpedialite.org/things/52780#thing"),
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
         RDF::RDFS.comment,
         RDF::Literal("U2 are an Irish rock band."),
+      ])
+    end
+
+    it "should include a owl:sameAs triple for the Dbpedia URI" do
+      @graph.should have_triple([
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
+        RDF::OWL.sameAs,
+        RDF::URI("http://dbpedia.org/resource/U2")
+      ])
+    end
+
+    it "should include a isPrimaryTopicOf triple for the Wikipedia page" do
+      @graph.should have_triple([
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
+        RDF::FOAF.isPrimaryTopicOf,
+        RDF::URI("http://en.wikipedia.org/wiki/U2")
+      ])
+    end
+
+    it "should include a owl:sameAs triple for the FreeBase Machine ID" do
+      @graph.should have_triple([
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
+        RDF::OWL.sameAs,
+        RDF::URI("http://rdf.freebase.com/ns/m.0dw4g")
+      ])
+    end
+
+    it "should include a owl:sameAs triple for the FreeBase GUID" do
+      @graph.should have_triple([
+        RDF::URI("http://dbpedialite.org/things/52780#id"),
+        RDF::OWL.sameAs,
+        RDF::URI("http://rdf.freebase.com/ns/guid.9202a8c04000641f8000000000066c8e")
       ])
     end
 
@@ -295,7 +325,15 @@ describe WikipediaThing do
       @graph.should have_triple([
         RDF::URI("http://dbpedialite.org/things/52780"),
         RDF::FOAF.primaryTopic,
-        RDF::URI("http://dbpedialite.org/things/52780#thing")
+        RDF::URI("http://dbpedialite.org/things/52780#id")
+      ])
+    end
+
+    it "should include a dc:title triple for the document" do
+      @graph.should have_triple([
+        RDF::URI("http://dbpedialite.org/things/52780"),
+        RDF::URI("http://purl.org/dc/terms/title"),
+        RDF::Literal('dbpedia lite thing - U2')
       ])
     end
 
